@@ -46,6 +46,9 @@ class ModelCheckpoint(Callback):
             if ``save_top_k >= 2`` and the callback is called multiple
             times inside an epoch, the name of the saved file will be
             appended with a version count starting with `v0`.
+        save_last (bool): if True, keep the model from the last epoch saved,
+            even if it is not the best model. This will keep an extra checkpoint file,
+            so k + 1 models will be saved.
         mode (str): one of {auto, min, max}.
             If ``save_top_k != 0``, the decision
             to overwrite the current save file is made
@@ -74,7 +77,7 @@ class ModelCheckpoint(Callback):
     """
 
     def __init__(self, filepath, monitor: str = 'val_loss', verbose: bool = False,
-                 save_top_k: int = 1, save_weights_only: bool = False,
+                 save_top_k: int = 1, save_last: bool = False, save_weights_only: bool = False,
                  mode: str = 'auto', period: int = 1, prefix: str = ''):
         super().__init__()
         if save_top_k and os.path.isdir(filepath) and len(os.listdir(filepath)) > 0:
@@ -101,6 +104,7 @@ class ModelCheckpoint(Callback):
         self.kth_best_model = ''
         self.best = 0
         self.save_function = None
+        self.save_last = save_last
 
         mode_dict = {
             'min': (np.less, np.Inf, 'min'),

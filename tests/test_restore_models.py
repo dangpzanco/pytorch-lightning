@@ -151,6 +151,50 @@ def test_load_model_from_checkpoint(tmpdir):
     tutils.assert_ok_model_acc(new_trainer)
 
 
+def test_load_model_from_checkpoint2(tmpdir):
+    """Verify test() on pretrained model."""
+    tutils.reset_seed()
+
+    hparams = tutils.get_hparams()
+    model = LightningTestModel(hparams)
+
+    trainer_options = dict(
+        show_progress_bar=False,
+        max_epochs=2,
+        train_percent_check=0.4,
+        val_percent_check=0.2,
+        checkpoint_callback=ModelCheckpoint(tmpdir, save_top_k=-1),
+        logger=False,
+        default_save_path=tmpdir,
+    )
+
+    # fit model
+    trainer = Trainer(**trainer_options)
+    result = trainer.fit(model)
+    trainer.test()
+
+    # correct result and ok accuracy
+    assert result == 1, 'training failed to complete'
+
+    # load last checkpoint
+    last_checkpoint = sorted(glob.glob(os.path.join(trainer.checkpoint_callback.dirpath, "*.ckpt")))[-1]
+    pretrained_model = LightningTestModel.load_from_checkpoint(last_checkpoint)
+
+    # test that hparams loaded correctly
+    for k, v in vars(hparams).items():
+        assert getattr(pretrained_model.hparams, k) == v
+
+    # assert weights are the same
+    for (old_name, old_p), (new_name, new_p) in zip(model.named_parameters(), pretrained_model.named_parameters()):
+        assert torch.all(torch.eq(old_p, new_p)), 'loaded weights are not the same as the saved weights'
+
+    new_trainer = Trainer(**trainer_options)
+    new_trainer.test(pretrained_model)
+
+    # test we have good test accuracy
+    tutils.assert_ok_model_acc(new_trainer)
+
+
 def test_running_test_pretrained_model_dp(tmpdir):
     """Verify test() on pretrained model."""
     tutils.reset_seed()
@@ -364,5 +408,5 @@ def test_load_model_with_missing_hparams(tmpdir):
         LightningTestModelWithUnusedHyperparametersArg.load_from_checkpoint(last_checkpoint)
 
 
-# if __name__ == '__main__':
-#     pytest.main([__file__])
+if __name__ == '__main__':
+    pytest.main([__file__])
